@@ -18,7 +18,7 @@ router.post(
   authLimiter,
   [
     body('phone').notEmpty(),
-    body('code').isLength({ min: 6, max: 6 }).isNumeric(),
+    body('code').isLength({ min: 4, max: 6 }).isNumeric(),
     body('deviceToken').optional().isLength({ min: 10 }),
     body('devicePlatform').optional().isIn(['ios', 'android']),
   ],

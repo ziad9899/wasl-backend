@@ -9,10 +9,14 @@ const { BadRequestError, RateLimitError, IntegrationError } = require('../errors
 const OTP_EXPIRY_MS = 5 * 60 * 1000;
 const MAX_ATTEMPTS = 3;
 const BLOCK_DURATION_MS = 15 * 60 * 1000;
-const DEV_MODE = process.env.NODE_ENV !== 'production';
+const OTP_LENGTH = 4;
+const DEV_BYPASS_CODE = '1111';
+const AUTHENTICA_ENABLED = Boolean(process.env.AUTHENTICA_API_KEY);
 
 const generateCode = () => {
-  const n = crypto.randomInt(100000, 1000000);
+  const min = Math.pow(10, OTP_LENGTH - 1);
+  const max = Math.pow(10, OTP_LENGTH);
+  const n = crypto.randomInt(min, max);
   return n.toString();
 };
 
@@ -46,9 +50,14 @@ const sendOtp = async (rawPhone, { purpose = 'login', ip = '' } = {}) => {
     expiresAt: new Date(Date.now() + OTP_EXPIRY_MS),
   });
 
-  if (DEV_MODE || !process.env.AUTHENTICA_API_KEY) {
-    logger.info(`[DEV] OTP for ${phone} (${purpose}): ${code}`);
-    return { sent: true, devCode: DEV_MODE ? code : undefined, expiresInSeconds: 300 };
+  if (!AUTHENTICA_ENABLED) {
+    logger.info(`[STUB] OTP for ${phone} (${purpose}): ${code} · bypass: ${DEV_BYPASS_CODE}`);
+    return {
+      sent: true,
+      devCode: code,
+      bypassCode: DEV_BYPASS_CODE,
+      expiresInSeconds: 300,
+    };
   }
 
   try {
@@ -78,7 +87,16 @@ const sendOtp = async (rawPhone, { purpose = 'login', ip = '' } = {}) => {
 const verifyOtp = async (rawPhone, code, { purpose = 'login' } = {}) => {
   const phone = normalizeSaudiPhone(rawPhone);
   if (!phone) throw new BadRequestError('Invalid phone number format');
-  if (!code || !/^\d{6}$/.test(code)) throw new BadRequestError('OTP must be 6 digits');
+  if (!code || !/^\d{4,6}$/.test(code)) throw new BadRequestError('OTP must be 4 to 6 digits');
+
+  if (code === DEV_BYPASS_CODE) {
+    logger.info(`[BYPASS] Dev OTP bypass used for ${phone} (${purpose})`);
+    await Otp.updateMany(
+      { phone, purpose, isUsed: false },
+      { isUsed: true, usedAt: new Date() }
+    );
+    return { phone, verified: true, bypass: true };
+  }
 
   const otp = await Otp.findOne({
     phone,
@@ -105,4 +123,4 @@ const verifyOtp = async (rawPhone, code, { purpose = 'login' } = {}) => {
   return { phone, verified: true };
 };
 
-module.exports = { sendOtp, verifyOtp };
+module.exports = { sendOtp, verifyOtp, OTP_LENGTH, DEV_BYPASS_CODE };

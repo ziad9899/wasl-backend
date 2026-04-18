@@ -220,6 +220,72 @@ const startServer = async () => {
         for (const c of DEFAULT_CONFIGS) {
           await Config.findOneAndUpdate({ key: c.key }, c, { upsert: true, new: true });
         }
+
+        const CarWashPrice = require('./src/models/CarWashPrice');
+        const CAR_WASH_DEFAULTS = [
+          { vehicleSize: 'small', washType: 'exterior_basic', price: 3000 },
+          { vehicleSize: 'small', washType: 'exterior_wax', price: 4000 },
+          { vehicleSize: 'small', washType: 'exterior_wax_double', price: 5000 },
+          { vehicleSize: 'small', washType: 'exterior_plus_interior_basic', price: 5000 },
+          { vehicleSize: 'small', washType: 'exterior_plus_interior_wax', price: 6000 },
+          { vehicleSize: 'small', washType: 'exterior_plus_interior_double', price: 7000 },
+          { vehicleSize: 'small', washType: 'interior_only', price: 3500 },
+          { vehicleSize: 'medium', washType: 'exterior_basic', price: 4000 },
+          { vehicleSize: 'medium', washType: 'exterior_wax', price: 5000 },
+          { vehicleSize: 'medium', washType: 'exterior_wax_double', price: 6000 },
+          { vehicleSize: 'medium', washType: 'exterior_plus_interior_basic', price: 6000 },
+          { vehicleSize: 'medium', washType: 'exterior_plus_interior_wax', price: 7000 },
+          { vehicleSize: 'medium', washType: 'exterior_plus_interior_double', price: 8000 },
+          { vehicleSize: 'medium', washType: 'interior_only', price: 4500 },
+          { vehicleSize: 'large', washType: 'exterior_basic', price: 5000 },
+          { vehicleSize: 'large', washType: 'exterior_wax', price: 6000 },
+          { vehicleSize: 'large', washType: 'exterior_wax_double', price: 7000 },
+          { vehicleSize: 'large', washType: 'exterior_plus_interior_basic', price: 7000 },
+          { vehicleSize: 'large', washType: 'exterior_plus_interior_wax', price: 8000 },
+          { vehicleSize: 'large', washType: 'exterior_plus_interior_double', price: 9500 },
+          { vehicleSize: 'large', washType: 'interior_only', price: 5500 },
+        ];
+        for (const p of CAR_WASH_DEFAULTS) {
+          await CarWashPrice.findOneAndUpdate(
+            { vehicleSize: p.vehicleSize, washType: p.washType },
+            { ...p, isActive: true },
+            { upsert: true, new: true }
+          );
+        }
+
+        const ServiceSubCategory = require('./src/models/ServiceSubCategory');
+        const { SERVICE_CATEGORIES } = require('./src/constants');
+        const SUBCATEGORIES = [
+          { parent: SERVICE_CATEGORIES.APPLIANCE_REPAIR, keyAr: 'ثلاجة', keyEn: 'Refrigerator', slug: 'refrigerator' },
+          { parent: SERVICE_CATEGORIES.APPLIANCE_REPAIR, keyAr: 'غسالة', keyEn: 'Washing Machine', slug: 'washing-machine' },
+          { parent: SERVICE_CATEGORIES.APPLIANCE_REPAIR, keyAr: 'فرن', keyEn: 'Oven', slug: 'oven' },
+          { parent: SERVICE_CATEGORIES.APPLIANCE_REPAIR, keyAr: 'تلفزيون', keyEn: 'TV', slug: 'tv' },
+          { parent: SERVICE_CATEGORIES.APPLIANCE_REPAIR, keyAr: 'مكيف سبليت', keyEn: 'Split AC', slug: 'split-ac' },
+          { parent: SERVICE_CATEGORIES.APPLIANCE_REPAIR, keyAr: 'مكيف شباك', keyEn: 'Window AC', slug: 'window-ac' },
+          { parent: SERVICE_CATEGORIES.APPLIANCE_REPAIR, keyAr: 'مكيف مركزي', keyEn: 'Central AC', slug: 'central-ac' },
+          { parent: SERVICE_CATEGORIES.APPLIANCE_REPAIR, keyAr: 'رسيفر', keyEn: 'Receiver', slug: 'receiver' },
+          { parent: SERVICE_CATEGORIES.HOME_MAINTENANCE, keyAr: 'سباكة', keyEn: 'Plumbing', slug: 'plumbing' },
+          { parent: SERVICE_CATEGORIES.HOME_MAINTENANCE, keyAr: 'كهرباء', keyEn: 'Electrical', slug: 'electrical' },
+          { parent: SERVICE_CATEGORIES.HOME_MAINTENANCE, keyAr: 'نجارة', keyEn: 'Carpentry', slug: 'carpentry' },
+          { parent: SERVICE_CATEGORIES.HOME_MAINTENANCE, keyAr: 'دهانات', keyEn: 'Painting', slug: 'painting' },
+          { parent: SERVICE_CATEGORIES.HOME_MAINTENANCE, keyAr: 'تبليط', keyEn: 'Tiling', slug: 'tiling' },
+          { parent: SERVICE_CATEGORIES.CLEANING, keyAr: 'تنظيف منزل شامل', keyEn: 'Deep Home Cleaning', slug: 'deep-cleaning' },
+          { parent: SERVICE_CATEGORIES.CLEANING, keyAr: 'غسيل خزانات', keyEn: 'Water Tank Cleaning', slug: 'tank-cleaning' },
+          { parent: SERVICE_CATEGORIES.CLEANING, keyAr: 'جلي وتلميع', keyEn: 'Polishing', slug: 'polishing' },
+          { parent: SERVICE_CATEGORIES.MOVING, keyAr: 'نقل عفش', keyEn: 'Furniture Moving', slug: 'furniture-moving', requiresVehicle: true },
+          { parent: SERVICE_CATEGORIES.MOVING, keyAr: 'دباب توصيل', keyEn: 'Motorbike Delivery', slug: 'motorbike', requiresVehicle: true },
+          { parent: SERVICE_CATEGORIES.MOVING, keyAr: 'دينة', keyEn: 'Pickup Truck', slug: 'pickup', requiresVehicle: true },
+          { parent: SERVICE_CATEGORIES.MOVING, keyAr: 'هايلكس', keyEn: 'Hilux', slug: 'hilux', requiresVehicle: true },
+          { parent: SERVICE_CATEGORIES.PEST_CONTROL, keyAr: 'رش المنزل', keyEn: 'Home Pest Control', slug: 'home-pest' },
+          { parent: SERVICE_CATEGORIES.PEST_CONTROL, keyAr: 'رش زراعي', keyEn: 'Agricultural Pest Control', slug: 'agri-pest' },
+        ];
+        for (const sub of SUBCATEGORIES) {
+          await ServiceSubCategory.findOneAndUpdate(
+            { slug: sub.slug },
+            { ...sub, isActive: true },
+            { upsert: true, new: true }
+          );
+        }
       } catch (err) {
         logger.error({ err: err.message }, 'Auto-seed failed (non-fatal)');
       }
