@@ -37,6 +37,7 @@ const catalogRoutes = require('./src/routes/catalog.routes');
 const referralRoutes = require('./src/routes/referral.routes');
 const maskedPhoneRoutes = require('./src/routes/masked-phone.routes');
 const dsrRoutes = require('./src/routes/dsr.routes');
+const contactRoutes = require('./src/routes/contact.routes');
 
 const { setIo: setOrderIo } = require('./src/controllers/order.controller');
 const { setIo: setBidIo } = require('./src/controllers/bid.controller');
@@ -65,8 +66,21 @@ app.use(helmet({
   contentSecurityPolicy: process.env.NODE_ENV === 'production' ? undefined : false,
 }));
 
+const allowedOrigins = (process.env.CORS_ORIGINS || process.env.CLIENT_URL || '')
+  .split(',')
+  .map((s) => s.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || '*',
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.length === 0) return callback(null, true);
+    if (allowedOrigins.includes('*')) return callback(null, true);
+    if (allowedOrigins.some((allowed) => origin === allowed || origin.endsWith('.vercel.app'))) {
+      return callback(null, true);
+    }
+    callback(new Error('CORS not allowed'));
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept-Language', 'Idempotency-Key', 'X-Request-Id', 'X-Device-Fingerprint'],
   credentials: true,
@@ -127,6 +141,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/referral', referralRoutes);
 app.use('/api/masked-phone', maskedPhoneRoutes);
 app.use('/api/dsr', dsrRoutes);
+app.use('/api/contact', contactRoutes);
 app.use('/api/admin', adminRoutes);
 
 app.use(notFound);
