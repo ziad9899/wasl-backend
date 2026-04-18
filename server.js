@@ -159,6 +159,57 @@ const startServer = async () => {
       logger.error({ err: err.message }, 'Failed to ensure ledger system accounts');
     }
 
+    if (process.env.AUTO_SEED === 'true' || process.env.NODE_ENV === 'production') {
+      try {
+        const Admin = require('./src/models/Admin');
+        const existingAdmin = await Admin.findOne({});
+        if (!existingAdmin) {
+          const argon2 = require('argon2');
+          const email = (process.env.SEED_ADMIN_EMAIL || 'admin@wasl.sa').toLowerCase();
+          const password = process.env.SEED_ADMIN_PASSWORD || 'Wasl@2026!';
+          const passwordHash = await argon2.hash(password, {
+            type: argon2.argon2id,
+            memoryCost: 19456,
+            timeCost: 2,
+            parallelism: 1,
+          });
+          await Admin.create({
+            name: 'Super Admin',
+            email,
+            passwordHash,
+            isSuperAdmin: true,
+            permissions: [],
+            status: 'active',
+          });
+          logger.info(`Auto-seed: super admin created (${email})`);
+        }
+
+        const Config = require('./src/models/Config');
+        const { CONFIG_KEYS } = require('./src/constants');
+        const DEFAULT_CONFIGS = [
+          { key: CONFIG_KEYS.SERVICE_RADIUS, value: 10, type: 'number', category: 'geo' },
+          { key: CONFIG_KEYS.WORKING_HOURS, value: { start: '06:00', end: '23:00' }, type: 'object', category: 'ops' },
+          { key: CONFIG_KEYS.COMMISSION_RATE, value: 10, type: 'number', category: 'pricing' },
+          { key: CONFIG_KEYS.ORDER_ACCEPTANCE_WINDOW, value: 60, type: 'number', category: 'ops' },
+          { key: CONFIG_KEYS.DISTANCE_FEE_PER_KM, value: 0, type: 'number', category: 'pricing' },
+          { key: CONFIG_KEYS.MIN_RATING_THRESHOLD, value: 2, type: 'number', category: 'ops' },
+          { key: CONFIG_KEYS.PAYMENT_METHODS, value: { cash: true, card: true, wallet: true, tabby: true, apple_pay: true }, type: 'object', category: 'payment' },
+          { key: CONFIG_KEYS.MAINTENANCE_MODE, value: false, type: 'boolean', category: 'ops' },
+          { key: CONFIG_KEYS.REFERRAL_BONUS, value: 0, type: 'number', category: 'pricing' },
+          { key: CONFIG_KEYS.MAX_BIDS_PER_ORDER, value: 10, type: 'number', category: 'ops' },
+          { key: CONFIG_KEYS.MAX_BROADCAST_ATTEMPTS, value: 5, type: 'number', category: 'ops' },
+          { key: CONFIG_KEYS.MIN_WITHDRAWAL, value: 10000, type: 'number', category: 'payment' },
+          { key: CONFIG_KEYS.MAX_WITHDRAWAL_PER_DAY, value: 500000, type: 'number', category: 'payment' },
+          { key: CONFIG_KEYS.BID_EXPIRY_MINUTES, value: 10, type: 'number', category: 'ops' },
+        ];
+        for (const c of DEFAULT_CONFIGS) {
+          await Config.findOneAndUpdate({ key: c.key }, c, { upsert: true, new: true });
+        }
+      } catch (err) {
+        logger.error({ err: err.message }, 'Auto-seed failed (non-fatal)');
+      }
+    }
+
     try {
       await restoreBroadcastsOnBoot(io);
     } catch (err) {
