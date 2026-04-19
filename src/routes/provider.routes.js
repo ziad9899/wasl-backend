@@ -6,6 +6,8 @@ const validate                              = require('../middleware/validate');
 const { uploadDocument, handleUploadError } = require('../middleware/upload');
 const { uploadLimiter }                     = require('../middleware/rateLimiter');
 
+router.get('/:id', ctrl.getPublicProvider);
+
 router.use(protect);
 
 router.post(

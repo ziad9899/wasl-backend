@@ -46,7 +46,7 @@ router.post(
   '/wallet/withdraw',
   restrictTo('provider'),
   idempotency({ required: true }),
-  [body('amount').isInt({ min: 10000 }), body('otpCode').isLength({ min: 6, max: 6 })],
+  [body('amount').isInt({ min: 10000 }), body('otpCode').isLength({ min: 4, max: 4 }).isNumeric()],
   validate,
   ctrl.requestWithdrawal
 );

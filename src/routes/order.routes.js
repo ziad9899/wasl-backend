@@ -41,6 +41,14 @@ router.patch('/:id/accept', restrictTo('provider'), ctrl.acceptOrder);
 router.patch('/:id/reject', restrictTo('provider'), ctrl.rejectOrder);
 
 router.patch(
+  '/:id/cancel',
+  restrictTo('client'),
+  [body('reason').optional().isLength({ max: 500 })],
+  validate,
+  ctrl.cancelOrder
+);
+
+router.patch(
   '/:id/status',
   [body('status').isIn(ORDER_STATUS_LIST)],
   validate,

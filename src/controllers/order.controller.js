@@ -14,6 +14,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { calculateCommission } = require('../utils/money');
 const {
   ORDER_STATUS,
+  ORDER_TERMINAL_STATES,
   FIXED_PRICE_CATEGORIES,
   PAYMENT_METHODS,
   PAYMENT_STATUS,
@@ -552,6 +553,69 @@ const getTimeline = asyncHandler(async (req, res) => {
   return success(res, { timeline: order.timeline });
 });
 
+const cancelOrder = asyncHandler(async (req, res) => {
+  const order = await Order.findById(req.params.id);
+  if (!order) throw new NotFoundError('Order');
+
+  if (order.clientId.toString() !== req.user._id.toString()) {
+    throw new ForbiddenError('Only the client can cancel this order');
+  }
+
+  if (ORDER_TERMINAL_STATES.includes(order.status)) {
+    throw new ConflictError(`Order is already ${order.status}`);
+  }
+
+  if (![ORDER_STATUS.PENDING, ORDER_STATUS.BROADCASTING].includes(order.status)) {
+    throw new ForbiddenError('Cannot cancel after a provider has accepted the order');
+  }
+
+  const reason = (req.body?.reason || '').toString().slice(0, 500);
+
+  const updated = await Order.findOneAndUpdate(
+    { _id: order._id, status: { $in: [ORDER_STATUS.PENDING, ORDER_STATUS.BROADCASTING] } },
+    {
+      status: ORDER_STATUS.CANCELLED,
+      cancelledBy: req.user._id,
+      cancelledAt: new Date(),
+      cancellationReason: reason,
+      $push: {
+        timeline: {
+          status: ORDER_STATUS.CANCELLED,
+          note: reason || 'Cancelled by client',
+          actorId: req.user._id,
+          actorRole: USER_ROLES.CLIENT,
+          timestamp: new Date(),
+        },
+      },
+    },
+    { new: true }
+  );
+
+  if (!updated) throw new ConflictError('Order state changed; cancellation no longer allowed');
+
+  cancelTimeout(order._id.toString());
+
+  await auditService.record({
+    actorType: 'user',
+    actorId: req.user._id,
+    action: 'order.cancel',
+    targetType: 'Order',
+    targetId: order._id,
+    ipAddress: req.ip,
+    correlationId: req.correlationId,
+    diff: { from: order.status, to: ORDER_STATUS.CANCELLED, reason },
+  });
+
+  if (_io) {
+    _io.to(`order:${order._id}`).emit('order:status_update', {
+      orderId: order._id,
+      status: ORDER_STATUS.CANCELLED,
+    });
+  }
+
+  return success(res, { order: updated }, 'Order cancelled');
+});
+
 const confirmCashReceipt = asyncHandler(async (req, res) => {
   const order = await Order.findById(req.params.id);
   if (!order) throw new NotFoundError('Order');
@@ -596,5 +660,6 @@ module.exports = {
   setAgreedPrice,
   getNearbyProviders,
   getTimeline,
+  cancelOrder,
   confirmCashReceipt,
 };

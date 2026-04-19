@@ -18,7 +18,7 @@ router.post(
 router.post(
   '/erasure',
   [
-    body('otpCode').isLength({ min: 6, max: 6 }),
+    body('otpCode').isLength({ min: 4, max: 4 }).isNumeric(),
     body('reason').optional().isLength({ max: 500 }),
   ],
   validate,
