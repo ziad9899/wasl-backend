@@ -99,12 +99,9 @@ const createOrder = asyncHandler(async (req, res) => {
 
   if (config.maintenanceMode) throw new ServiceUnavailableError('Maintenance mode is active');
 
-  if (!isWithinWorkingHours(config.workingHours)) {
-    const hours = config.workingHours || { start: '06:00', end: '23:00' };
-    throw new ServiceUnavailableError(
-      `Service available from ${hours.start} to ${hours.end}`
-    );
-  }
+  // 24/7 service: working-hours guard intentionally disabled. The
+  // isWithinWorkingHours helper stays in this file so admins can re-enable
+  // a window later by simply restoring this if-block — no logic to rewrite.
 
   const category = serviceCategory || items?.[0]?.serviceCategory;
   if (!category) throw new BadRequestError('serviceCategory is required');

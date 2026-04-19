@@ -203,7 +203,7 @@ const startServer = async () => {
         const { CONFIG_KEYS } = require('./src/constants');
         const DEFAULT_CONFIGS = [
           { key: CONFIG_KEYS.SERVICE_RADIUS, value: 10, type: 'number', category: 'geo' },
-          { key: CONFIG_KEYS.WORKING_HOURS, value: { start: '06:00', end: '23:00' }, type: 'object', category: 'ops' },
+          { key: CONFIG_KEYS.WORKING_HOURS, value: { start: '00:00', end: '23:59' }, type: 'object', category: 'ops' },
           { key: CONFIG_KEYS.COMMISSION_RATE, value: 10, type: 'number', category: 'pricing' },
           { key: CONFIG_KEYS.ORDER_ACCEPTANCE_WINDOW, value: 60, type: 'number', category: 'ops' },
           { key: CONFIG_KEYS.DISTANCE_FEE_PER_KM, value: 0, type: 'number', category: 'pricing' },
