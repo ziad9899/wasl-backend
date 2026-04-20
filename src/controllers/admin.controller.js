@@ -150,8 +150,14 @@ const getPendingProviders = asyncHandler(async (req, res) => {
   const limit = Math.min(parseInt(req.query.limit) || 20, 100);
   const skip = (page - 1) * limit;
 
+  // Only show applications the provider has actually submitted for review
+  // (submittedAt set). Drafts — providers who created an account but
+  // haven't uploaded docs yet — are excluded so the queue stays clean.
   const [providers, total] = await Promise.all([
-    Provider.find({ approvalStatus: PROVIDER_APPROVAL.PENDING })
+    Provider.find({
+      approvalStatus: PROVIDER_APPROVAL.PENDING,
+      submittedAt: { $ne: null },
+    })
       .populate('userId', 'name phone email avatar createdAt')
       .sort({ createdAt: 1 })
       .skip(skip)

@@ -68,6 +68,13 @@ router.post(
   ctrl.uploadDocument
 );
 
+// Provider clicked "ارسال الطلب" — flips draft → submitted-for-review.
+router.patch(
+  '/submit',
+  restrictTo('provider'),
+  ctrl.submitProviderApplication
+);
+
 // ── Dynamic-id routes (must come AFTER all static paths) ──────────────────
 // These also stay protected so every fetch is auditable; the public profile
 // helper still returns the same data — login wall is no privacy loss but

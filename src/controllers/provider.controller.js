@@ -174,6 +174,42 @@ const getProviderReviews = asyncHandler(async (req, res) => {
   return success(res, { reviews }, 'success', 200, paginate(page, limit, total));
 });
 
+// Marks the provider's application as submitted-for-review. Until this
+// fires, the provider sits in "draft" state — visible only to themselves
+// (their requirements screen lets them keep editing) and NOT in the admin
+// pending queue. After this fires, approvalStatus stays 'pending' but
+// submittedAt becomes a timestamp, which is what the app and admin both
+// use to know "review me now".
+//
+// Idempotent: calling it again is a no-op (we don't refresh the timestamp
+// or change anything if already submitted, so admin queue order is stable).
+const submitProviderApplication = asyncHandler(async (req, res) => {
+  const provider = await Provider.findOne({ userId: req.user._id });
+  if (!provider) throw new NotFoundError('Provider profile');
+
+  // Once approved or rejected, the application is closed.
+  if (provider.approvalStatus !== 'pending') {
+    throw new ConflictError('Application already processed');
+  }
+
+  // Don't accept submission without at least the two mandatory documents
+  // (national ID front + selfie). The screen can show a clearer error.
+  const docs = provider.documents || {};
+  const hasIdFront = !!(docs.nationalId?.front?.url || docs.residencePermit?.front?.url);
+  const hasSelfie = !!docs.profilePhoto?.url;
+  if (!hasIdFront || !hasSelfie) {
+    throw new BadRequestError('Required documents missing: id and profile photo');
+  }
+
+  if (provider.submittedAt) {
+    return success(res, { submittedAt: provider.submittedAt }, 'Already submitted');
+  }
+
+  provider.submittedAt = new Date();
+  await provider.save();
+  return success(res, { submittedAt: provider.submittedAt }, 'Application submitted');
+});
+
 const getPublicProvider = asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id).select('name avatar rating role status');
   if (!user || user.role !== 'provider') throw new NotFoundError('Provider');
@@ -201,6 +237,7 @@ module.exports = {
   updateProfile,
   setOnlineStatus,
   updateLocation,
+  submitProviderApplication,
   getProviderReviews,
   getPublicProvider,
 };

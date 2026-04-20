@@ -53,6 +53,13 @@ const providerSchema = new mongoose.Schema({
   },
   approvalNote: { type: String, default: '' },
 
+  // Distinguishes "draft" (provider record exists but the user is still
+  // filling out documents) from "submitted-for-review" (user pressed
+  // "ارسال الطلب", the application is now in the admin queue).
+  // null  → draft, not in admin pending list, no review banner in app
+  // Date  → admin review pending
+  submittedAt: { type: Date, default: null },
+
   isOnline: { type: Boolean, default: false },
 
   currentLocation: {
