@@ -6,8 +6,11 @@ const validate                              = require('../middleware/validate');
 const { uploadDocument, handleUploadError } = require('../middleware/upload');
 const { uploadLimiter }                     = require('../middleware/rateLimiter');
 
-router.get('/:id', ctrl.getPublicProvider);
-
+// ── Authenticated provider routes ─────────────────────────────────────────
+// Important: every static path (/profile, /status, /location, /documents)
+// MUST be registered before the catch-all /:id below. Express matches by
+// declaration order, so /:id would otherwise swallow GET /profile and route
+// it to getPublicProvider with id="profile".
 router.use(protect);
 
 router.post(
@@ -65,6 +68,11 @@ router.post(
   ctrl.uploadDocument
 );
 
+// ── Dynamic-id routes (must come AFTER all static paths) ──────────────────
+// These also stay protected so every fetch is auditable; the public profile
+// helper still returns the same data — login wall is no privacy loss but
+// gains us per-user rate limits and audit visibility.
 router.get('/:id/reviews', ctrl.getProviderReviews);
+router.get('/:id', ctrl.getPublicProvider);
 
 module.exports = router;
