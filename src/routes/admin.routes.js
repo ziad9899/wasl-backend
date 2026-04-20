@@ -4,6 +4,9 @@ const ctrl = require('../controllers/admin.controller');
 const { protectAdmin } = require('../middleware/adminAuth');
 const validate = require('../middleware/validate');
 const { recordAudit } = require('../middleware/auditLog');
+const { uploadMiddleware } = require('../config/cloudinary');
+const { handleUploadError } = require('../middleware/upload');
+const uploadBannerImage = uploadMiddleware('admin/banners').single('image');
 
 router.use(protectAdmin);
 
@@ -136,6 +139,16 @@ router.post(
 );
 router.put('/catalog/banners/:id', recordAudit('banner.update', 'Banner'), ctrl.updateBanner);
 router.delete('/catalog/banners/:id', recordAudit('banner.delete', 'Banner'), ctrl.deleteBanner);
+
+// Generic admin image upload — pipes through Cloudinary (5MB cap, MIME
+// allowlist) and returns the CDN URL the admin can paste into a banner.
+router.post(
+  '/catalog/banners/upload',
+  uploadBannerImage,
+  handleUploadError,
+  recordAudit('banner.image.upload', 'Banner'),
+  ctrl.uploadAdminImage
+);
 
 router.get('/catalog/subcategories', ctrl.listSubCategories);
 router.post(
