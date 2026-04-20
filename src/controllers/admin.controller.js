@@ -768,6 +768,19 @@ const healthReconciliation = asyncHandler(async (req, res) => {
   return success(res, result);
 });
 
+// Admin-only image upload helper. Routes a single multipart "image" field
+// through Cloudinary (same security stack as provider docs: 5MB cap, MIME
+// allowlist jpg/png/webp, extension allowlist) and returns the resulting
+// CDN URL so the admin UI can drop it into a Banner or other catalog row.
+const uploadAdminImage = asyncHandler(async (req, res) => {
+  if (!req.file) throw new BadRequestError('No image uploaded');
+  return success(res, {
+    url:      req.file.path,
+    publicId: req.file.filename,
+    bytes:    req.file.size,
+  }, 'Uploaded');
+});
+
 module.exports = {
   getDashboardStats,
   getAllUsers,
@@ -807,6 +820,7 @@ module.exports = {
   updateBanner,
   listBanners,
   deleteBanner,
+  uploadAdminImage,
   createSubCategory,
   updateSubCategory,
   listSubCategories,
