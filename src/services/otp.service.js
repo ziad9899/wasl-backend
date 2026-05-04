@@ -10,8 +10,14 @@ const OTP_EXPIRY_MS = 5 * 60 * 1000;
 const MAX_ATTEMPTS = 3;
 const BLOCK_DURATION_MS = 15 * 60 * 1000;
 const OTP_LENGTH = 4;
-const DEV_BYPASS_CODE = '1111';
 const AUTHENTICA_ENABLED = Boolean(process.env.AUTHENTICA_API_KEY);
+// Dev-only bypass: when explicitly enabled via env in NON-production, the
+// fixed code below is accepted by verifyOtp. Never honoured in production
+// regardless of the env flag, and the code is never returned in responses.
+const DEV_BYPASS_ENABLED =
+  process.env.NODE_ENV !== 'production' &&
+  process.env.OTP_DEV_BYPASS === 'true';
+const DEV_BYPASS_CODE = '1111';
 
 const generateCode = () => {
   const min = Math.pow(10, OTP_LENGTH - 1);
@@ -51,13 +57,21 @@ const sendOtp = async (rawPhone, { purpose = 'login', ip = '' } = {}) => {
   });
 
   if (!AUTHENTICA_ENABLED) {
-    logger.info(`[STUB] OTP for ${phone} (${purpose}): ${code} · bypass: ${DEV_BYPASS_CODE}`);
-    return {
-      sent: true,
-      devCode: code,
-      bypassCode: DEV_BYPASS_CODE,
-      expiresInSeconds: 300,
-    };
+    // Stub mode (no SMS provider configured). The code is logged ONLY in
+    // non-production so devs can copy it from server output. In production
+    // running without a configured SMS provider is a misconfiguration: we
+    // still issue the OTP so the system stays usable, but we don't leak
+    // the code into logs or responses.
+    if (process.env.NODE_ENV !== 'production') {
+      logger.info(`[STUB] OTP issued for ${phone} (${purpose}): ${code}`);
+      return {
+        sent: true,
+        devCode: code,
+        expiresInSeconds: 300,
+      };
+    }
+    logger.warn(`[STUB] OTP issued for ${phone} (${purpose}) — SMS provider not configured`);
+    return { sent: true, expiresInSeconds: 300 };
   }
 
   try {
@@ -89,8 +103,8 @@ const verifyOtp = async (rawPhone, code, { purpose = 'login' } = {}) => {
   if (!phone) throw new BadRequestError('Invalid phone number format');
   if (!code || !/^\d{4,6}$/.test(code)) throw new BadRequestError('OTP must be 4 to 6 digits');
 
-  if (code === DEV_BYPASS_CODE) {
-    logger.info(`[BYPASS] Dev OTP bypass used for ${phone} (${purpose})`);
+  if (DEV_BYPASS_ENABLED && code === DEV_BYPASS_CODE) {
+    logger.warn(`[BYPASS] Dev OTP bypass used for ${phone} (${purpose})`);
     await Otp.updateMany(
       { phone, purpose, isUsed: false },
       { isUsed: true, usedAt: new Date() }
@@ -123,4 +137,4 @@ const verifyOtp = async (rawPhone, code, { purpose = 'login' } = {}) => {
   return { phone, verified: true };
 };
 
-module.exports = { sendOtp, verifyOtp, OTP_LENGTH, DEV_BYPASS_CODE };
+module.exports = { sendOtp, verifyOtp, OTP_LENGTH };

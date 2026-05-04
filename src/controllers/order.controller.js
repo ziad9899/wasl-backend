@@ -1,5 +1,6 @@
 const Order = require('../models/Order');
 const Provider = require('../models/Provider');
+const User = require('../models/User');
 const Config = require('../models/Config');
 const Coupon = require('../models/Coupon');
 const CarWashPrice = require('../models/CarWashPrice');
@@ -21,6 +22,7 @@ const {
   NOTIFICATION_TYPES,
   CONFIG_KEYS,
   USER_ROLES,
+  USER_STATUS,
   PROVIDER_APPROVAL,
 } = require('../constants');
 const {
@@ -99,9 +101,12 @@ const createOrder = asyncHandler(async (req, res) => {
 
   if (config.maintenanceMode) throw new ServiceUnavailableError('Maintenance mode is active');
 
-  // 24/7 service: working-hours guard intentionally disabled. The
-  // isWithinWorkingHours helper stays in this file so admins can re-enable
-  // a window later by simply restoring this if-block — no logic to rewrite.
+  if (!isWithinWorkingHours(config.workingHours)) {
+    const wh = config.workingHours || { start: '06:00', end: '23:00' };
+    throw new ServiceUnavailableError(
+      `Service available from ${wh.start} to ${wh.end}`
+    );
+  }
 
   const category = serviceCategory || items?.[0]?.serviceCategory;
   if (!category) throw new BadRequestError('serviceCategory is required');
@@ -284,6 +289,15 @@ const acceptOrder = asyncHandler(async (req, res) => {
 
   if (order.rejectedBy.some((id) => id.toString() === req.user._id.toString())) {
     throw new ConflictError('You already rejected this order');
+  }
+
+  // Block suspended/inactive provider accounts. Even if the Provider record
+  // is approved, a suspended User must not be able to take new work — this
+  // mirrors the broadcast filter (broadcasting.service line 49) so an
+  // already-broadcast order can't be rescued by a suspended provider.
+  const userDoc = await User.findById(req.user._id).select('status');
+  if (!userDoc || userDoc.status !== USER_STATUS.ACTIVE) {
+    throw new ForbiddenError('Account not active');
   }
 
   const provider = await Provider.findOne({ userId: req.user._id });
